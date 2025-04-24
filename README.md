@@ -393,6 +393,11 @@ Para proteger la sesión y evitar ataques Man-in-the-Middle (MITM), es crucial h
 
 1. Generamos un certificado SSL autofirmado
 
+Para entornos de prueba o desarrollo, se puede utilizar un **certificado autofirmado**, es decir, un certificado que no ha sido emitido por una>
+
+#### Paso 1: Crear la clave privada y el certificado
+---
+
 Como estamos trabajando bajo docker, accedemos al servidor:
 
 ~~~
@@ -406,17 +411,63 @@ mkdir /etc/apache2/ssl
 cd /etc/apache2/ssl
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout localhost.key -out localhost.crt
 ~~~
-Los detalles a ingresar en OpenSSL:
 
-• Common Name (CN): Escribir localhost
-• Los demás campos se pueden dejar en blanco o con datos ficticios
+**Explicación de los parámetros del comando:**
+
+- `req`: inicia la generación de una solicitud de certificado.
+- `-x509`: crea un certificado autofirmado en lugar de una CSR.
+- `-nodes`: omite el cifrado de la clave privada, evitando el uso de contraseña.
+- `-newkey rsa:2048`: genera una nueva clave RSA de 2048 bits.
+- `-keyout server.key`: nombre del archivo que contendrá la clave privada.
+- `-out server.crt`: nombre del archivo de salida para el certificado.
+- `-days 365`: el certificado será válido por 365 días.
+
+Durante la ejecución del comando, se te solicitará que completes datos como país, nombre de organización, y nombre común (dominio).
 
 ![](images/GIS16.png)
 
 Vemos como se han creado el certificado y la clave pública
 ![](images/GIS17.png)
 
-2o Configurar Apache para usar HTTPS
+### Paso 2.Configurar Apache para usar HTTPS
+
+Una vez que tengas el certificado y la clave privada, debes configurar Apache para utilizarlos.
+
+Edita el archivo de configuración SSL, por ejemplo:
+~~~
+// Hacemos copia de seguridad de archivo de configuracion ssl 
+cp default-ssl.conf default-ssl.conf.old
+
+// modificamos archivos de configuracion
+nano /etc/apache2/sites-available/default-ssl.conf
+~~~
+
+Introducimos el siguiente contenido en el archivo de configuración:
+
+~~~
+<VirtualHost *:443>
+    ServerName www.pps.edu
+
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/certs/server.crt
+    SSLCertificateKeyFile /etc/ssl/private/server.key
+
+    DocumentRoot /var/www/html
+</VirtualHost>
+
+~~~
+Date cuenta que hemos creado un **servidor virtual** con nombre **www.pps.edu**. A partir de ahora tendremos que introducir en la barra de dirección del navegador `https://www.pps.edu` en vez de `https://localhost`.
+
+### Paso3: Luego habilita SSL y el sitio:
+
+~~~
+a2enmod ssl
+a2ensite default-ssl.conf
+service apache2 reload
+~~~
+
+### Paso 4: poner dirección en /etc/hosts o habilitar puerto 443
+
 Editar el archivo de configuración de Apache default-ssl.conf :
 sudo nano /etc/apache2/sites-available/default-ssl.conf
 Modificar o añadir estas líneas dentro de <VirtualHost *:443>:
