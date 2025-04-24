@@ -1,6 +1,12 @@
+# Explotación y Mitigación de Gestión Insegura de Sesiones
+--- 
+Tema: Secuestro de sesiones
+Objetivo: Identificar riesgos en la gestión de sesiones y mitigarlos
+
 # PPS-Unidad3Actividad7-RCE
-Explotación y Mitigación de ().
-Tenemos como objetivo:
+Explotación y Mitigación de gestión insegura de sesiones.
+
+Tenemos como **objetivo**:
 
 > - Ver cómo se pueden hacer ataques .
 >
@@ -8,18 +14,17 @@ Tenemos como objetivo:
 >
 > - Implementar diferentes modificaciones del codigo para aplicar mitigaciones o soluciones.
 
-## ¿Qué es CSRF?
+## ¿Qué es Session Management?
 ---
+El Session Management (gestión de sesiones) es un mecanismo que permite a las aplicaciones web rastrear y mantener el estado de los usuarios a lo largo de múltiples solicitudes HTTP. Una mala implementación puede exponer la aplicación a ataques como Session Hijacking (secuestro de sesión) o reutilización de tokens para suplantación de identidad.
 
-Consecuencias de :
-- 
 ## ACTIVIDADES A REALIZAR
 ---
-> Lee detenidamente la sección de vulnerabilidades de subida de archivos.  de la página de PortWigger <https://portswigger.net/web-security/file-upload>
+> Lee detenidamente la sección de autenticación de la página de PortWigger <https://portswigger.net/web-security/authentication#what-is-authentication>
 >
-> Lee el siguiente [documento sobre Explotación y Mitigación de ataques de Remote Code Execution](./files/ExplotacionYMitigacion.pdf>
+> Lee el siguiente [documento sobre Explotación y Mitigación de ataques de Remote Code Execution](./files/ExplotacionMitigacionGestionInseguraSesiones.pdf>
 > 
-> También y como marco de referencia, tienes [ la sección de correspondiente de ataque  del **Proyecto Web Security Testing Guide** (WSTG) del proyecto **OWASP**.]()
+> También y como marco de referencia, tienes [ la sección de correspondiente de Gestión de Sesiones  del **Proyecto Web Security Testing Guide** (WSTG) del proyecto **OWASP**.](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/06-Session_Management_Testing/README)
 >
 
 
@@ -34,14 +39,6 @@ docker-compose up -d
 ~~~
 
 
-Actividad 2: Explotación y Mitigación de Gestión
-Insegura de Sesiones
-Tema: Secuestro de sesiones
-Objetivo: Identificar riesgos en la gestión de sesiones y mitigarlos
-¿Qué es Session Management?
-El Session Management (gestión de sesiones) es un mecanismo que permite a las aplicaciones web rastrear y mantener
-el estado de los usuarios a lo largo de múltiples solicitudes HTTP. Una mala implementación puede exponer la aplicación
-a ataques como Session Hijacking (secuestro de sesión) o reutilización de tokens para suplantación de identidad.
 ## Código vulnerable
 ---
 
@@ -163,15 +160,42 @@ A continuación, se detalla cómo un atacante puede explotar este código vulner
 	
 	El atacante necesita obtener el Session ID (PHPSESSID) de la víctima. Puede hacerlo de varias formas:
 
-Captura de tráfico (MITM)
-•
- Si la web no usa HTTPS, un atacante puede capturar paquetes de red con herramientas como Wireshark:
-1. Iniciar Wireshark y filtrar por http.cookie.
-2. Capturar la solicitud del usuario legítimo.
-2
-3. Extraer la cookie PHPSESSID=ep5ae44cln6q76t8v18philqh3.
-Ataque XSS (Cross-Site Scripting)
-•
+> **Captura de tráfico (MITM)**
+>
+> Si la web no usa HTTPS, un atacante puede capturar paquetes de red con herramientas como Wireshark:
+>
+>1. Iniciar Wireshark y
+> ~~~
+> sudo wireshak 
+>~~~
+>
+>Se nos pide introducir una interfaz. Como nosotros estamos virtuaizando, es posible que tengamos muchas, pero vamos a ver la actividad en las diferentes redes.
+>
+>![](images/GIS6.png)
+>
+> En este momento puede enviar mi consulta a `http://localhost/session.php` y veré en que red se produce la actividad y la selecciono.
+>
+>![](images/GIS7.png)
+>
+> Una vez que  estamos capturando el tráfico de la red, en filtro, ponemos `http.cookie` y nos mostrará el inmtercambio de paquetes donde tenemos esos datos.
+>
+>![](images/GIS8.png)
+>
+> Hacemos doble click sobre ese paquete y se nos abre una ventana con todos los datos. 
+>
+>![](images/GIS9.png)
+>
+> Nos vamos al apartado **Hypertext Transfer Protocol**  y allí podemos ver la información de las variables.
+>
+>![](images/GIS10.png)
+>
+>Ya el atacante tiene los datos de nuestra sesión.
+
+>**Capturar la solicitud del usuario legítimo.**
+>2
+>3. Extraer la cookie PHPSESSID=ep5ae44cln6q76t8v18philqh3.
+![](images/GIS5.png)
+> **Ataque XSS (Cross-Site Scripting)**
 Si la aplicación tiene alguna vulnerabilidad XSS, el atacante puede inyectar un script para robar cookies. Primero
 creamos el fichero session_comment.php:
 <?php
