@@ -246,58 +246,176 @@ Ahora el atacante ya puede:
 
 - Modificar la contraseña del usuario.
 
-Mitigación de Session Hijacking
+## Mitigación de Session Hijacking
+---
+
+Creamos el archivo sesion1.php con el siguiente contenido:
+
+~~~
+<?php
+
+// Configurar la seguridad de la sesión antes de iniciarla
+ini_set('session.cookie_secure', 1);
+
+ // Solo permite cookies en HTTPS
+ini_set('session.cookie_httponly', 1); // Evita acceso desde JavaScript (prevención XSS)
+ini_set('session.use_only_cookies', 1); // Impide sesiones en URL
+ini_set('session.gc_maxlifetime', 1800); // Expira en 30 minutos
+session_set_cookie_params(1800); // Configura el tiempo de vida de la cookie de sesión
+
+// Redirigir HTTP a HTTPS si el usuario accede por HTTP
+if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
+        header("Location: https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
+        exit();
+}
+
+session_start();
+session_regenerate_id(true); // Borra la sesión anterior y genera una nueva
+
+// Validación de IP para evitar Session Hijacking
+if (!isset($_SESSION['ip'])) {
+        $_SESSION['ip'] = $_SERVER['REMOTE_ADDR']; // Guarda la IP al iniciar sesión
+} elseif ($_SESSION['ip'] !== $_SERVER['REMOTE_ADDR']) {
+        session_destroy(); // Destruir la sesión si la IP cambia
+        header("Location: login.php");
+        exit();
+}
+
+// Verificar tiempo de inactividad para expirar la sesión
+if (!isset($_SESSION['last_activity'])) {
+        $_SESSION['last_activity'] = time(); // Registrar el primer acceso
+} elseif (time() - $_SESSION['last_activity'] > 1800) { // 30 minutos
+        session_unset(); // Eliminar variables de sesión
+        session_destroy(); // Destruir la sesión
+        header("Location: login.php");
+        exit();
+} else {
+        $_SESSION['last_activity'] = time(); // Reiniciar el temporizador
+}
+
+// Protección contra XSS en el usuario
+if (!isset($_SESSION['user'])) {
+        if (isset($_GET['user'])) {
+                $_SESSION['user'] = htmlspecialchars($_GET['user'], ENT_QUOTES, 'UTF-8');
+        } else {
+                $_SESSION['user'] = "Desconocido"; // Evita variable indefinida
+        }
+}
+// Mostrar la sesión activa
+echo "Sesión iniciada como: " . $_SESSION['user'];
+
+?>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Inicio de Sesión Inseguro</title>
+</head>
+<body>
+    <h2>Iniciar sesión</h2>
+    <form method="GET">
+        <label for="user">Usuario:</label>
+        <input type="text" id="user" name="user" required>
+        <button type="submit">Iniciar sesión</button>
+    </form>
+</body>
+</html>
+
+~~~
 Para evitar este ataque, se deben implementar varias medidas:
-* Regenerar el ID de sesión en cada inicio de sesión, además guarda en la sesión el valor recibido por GET['user'],
-sanitizándolo para evitar ataques XSS (Cross-Site Scripting).
+**Regenerar el ID de sesión en cada inicio de sesión, además guarda en la sesión el valor recibido por `GET['user']`, sanitizándolo para evitar ataques XSS (Cross-Site Scripting).**
+
+~~~
 session_start();
 session_regenerate_id(true); // Borra la sesión anterior y genera una nueva
 $_SESSION['user'] = htmlspecialchars($_GET['user'], ENT_QUOTES, 'UTF-8');
-6
-nc3heoo2lu2khtjnabgig7dhs9
-9ii89l1qtutdt4812a6npvdvk3
-* Configurar la cookie de sesión de forma segura
+~~~
+
+Veremos como cada vez que accedamos a la sesión nos generara un valor nuevo de PHPSESSID.
+
+
+**Configurar la cookie de sesión de forma segura**
+
+Al introducir los siguientes cambios prevenimos accesos de sesión desde la url y desde JavaScript
+~~~
 ini_set('session.cookie_secure', 1);
  // Solo permite cookies en HTTPS
 ini_set('session.cookie_httponly', 1); // Evita acceso desde JavaScript (prevención XSS)
 ini_set('session.use_only_cookies', 1); // Impide sesiones en URL
-* Validar la IP y User-Agent del usuario
+
+~~~
+
+
+**Validar la IP y User-Agent del usuario**
+
+~~~
 session_start();
 if (!isset($_SESSION['ip'])) {
-$_SESSION['ip'] = $_SERVER['REMOTE_ADDR'];
+	$_SESSION['ip'] = $_SERVER['REMOTE_ADDR'];
 }
-7
 if ($_SESSION['ip'] !== $_SERVER['REMOTE_ADDR']) {
-session_destroy();
-header("Location: login.php");
-exit();
+	session_destroy();
+	header("Location: login.php");
+	exit();
 }
-* Implementar tiempo de expiración de sesión
+~~~
+
+
+**Implementar tiempo de expiración de sesión**
+
+~~~
 ini_set('session.gc_maxlifetime', 1800); // Expira en 30 minutos
 session_set_cookie_params(1800);
-* Usar HTTPS siempre
+~~~
+
+De esta forma la sesión sólo permanece abierta un tiempo determinado.
+
+
+**Usar HTTPS siempre**
+
 Configurar un SSL/TLS para cifrar las cookies y evitar capturas MITM.
+
+~~~
 // Redirigir HTTP a HTTPS si el usuario accede por HTTP
 if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
-header("Location: https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
+	header("Location: https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
 exit();
 }
-* Habilitar HTTPS con SSL/TLS en Localhost (Apache)
-Para proteger la sesión y evitar ataques Man-in-the-Middle (MITM), es crucial habilitar HTTPS en el servidor local. A
-continuación se configura en Apache.
-8
-Método 1: Habilitar HTTPS en Apache con OpenSSL
-1o Generar un certificado SSL autofirmado
-Ejecutar los siguientes comandos en el terminal para crear un certificado SSL:
+~~~
+
+### Cómo habilitar HTTPS con SSL/TLS en Localhost (Apache)
+---
+
+Para proteger la sesión y evitar ataques Man-in-the-Middle (MITM), es crucial habilitar HTTPS en el servidor local. Veamos cómo podemos habilitarlo en Apache con dos métodos diferentes.
+
+**Método 1: Habilitar HTTPS en Apache con OpenSSL**
+
+1. Generamos un certificado SSL autofirmado
+
+Como estamos trabajando bajo docker, accedemos al servidor:
+
+~~~
+docker exec -it lamp-php83 /bin/bash
+~~~
+
+comprobamos que están creados los directorios donde se guardan los certificados y creamos el certificado autofirmado:
+
+~~~
 mkdir /etc/apache2/ssl
 cd /etc/apache2/ssl
-sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout localhost.key -out
-localhost.crt
-Detalles a ingresar en OpenSSL:
-•
- Common Name (CN): Escribir localhost
-•
- Los demás campos se pueden dejar en blanco o con datos ficticios
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout localhost.key -out localhost.crt
+~~~
+Los detalles a ingresar en OpenSSL:
+
+• Common Name (CN): Escribir localhost
+• Los demás campos se pueden dejar en blanco o con datos ficticios
+
+![](images/GIS16.png)
+
+Vemos como se han creado el certificado y la clave pública
+![](images/GIS17.png)
+
 2o Configurar Apache para usar HTTPS
 Editar el archivo de configuración de Apache default-ssl.conf :
 sudo nano /etc/apache2/sites-available/default-ssl.conf
@@ -331,6 +449,8 @@ Verificar que HTTPS funciona correctamente
 2o Aceptar el certificado autofirmado (en Chrome, haz clic en Avanzado → Proceder).
 3o Verificar que las cookies de sesión ahora tienen Secure activado:
 •
+![](images/GIS15.png)
+![](images/GIS15.png)
 •
 •
 Abrir DevTools (F12 en Chrome o Firefox).
@@ -400,9 +520,6 @@ manejen autenticación de usuarios.
 
 
 
-
-## Código vulnerable
----
 
 
 
