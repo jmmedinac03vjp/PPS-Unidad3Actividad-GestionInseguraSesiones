@@ -444,11 +444,13 @@ Una vez que tengas el certificado y la clave privada, debes configurar Apache pa
 
 Edita el archivo de configuración SSL, por ejemplo:
 ~~~
-// Hacemos copia de seguridad de archivo de configuracion ssl 
+cd /etc/apache2/sites-available 
+// Hacemos copia de seguridad de archivo de configuracion  ssl 
+
 cp default-ssl.conf default-ssl.conf.old
 
 // modificamos archivos de configuracion
-nano /etc/apache2/sites-available/default-ssl.conf
+nano default-ssl.conf
 ~~~
 
 Introducimos el siguiente contenido en el archivo de configuración:
@@ -514,7 +516,7 @@ Ahora el servidor soportaría **HTTPS**. Accedemos al servidor en la siguiente d
 
 Podemos hacer que todas las solicitudes HTTP sean forzadas a HTTPS. 
 
-Para que todas las conexiones se realicen por HTTPS podemso hacerlo de varias formas:
+Para que todas las conexiones se realicen por HTTPS po hacerlo de varias formas:
 
 Tienes dos opciones:
 	1. Configuración en default.conf (archivo de configuración de Apache)
@@ -523,7 +525,7 @@ Edita tu archivo de configuración del sitio (por ejemplo /etc/apache2/sites-ava
 
 
 a) Usar Redirect directo
-apache
+~~~
 <VirtualHost *:80>
     ServerName midominio.com
     ServerAlias www.midominio.com
