@@ -22,7 +22,7 @@ El Session Management (gestión de sesiones) es un mecanismo que permite a las a
 ---
 > Lee detenidamente la sección de autenticación de la página de PortWigger <https://portswigger.net/web-security/authentication#what-is-authentication>
 >
-> Lee el siguiente [documento sobre Explotación y Mitigación de ataques de Remote Code Execution](./files/ExplotacionMitigacionGestionInseguraSesiones.pdf>
+> Lee el siguiente documento sobre Explotación y Mitigación de Gestión de sesiones inseguras <./files/ExplotacionMitigacionGestionInseguraSesiones.pdf>
 > 
 > También y como marco de referencia, tienes [ la sección de correspondiente de Gestión de Sesiones  del **Proyecto Web Security Testing Guide** (WSTG) del proyecto **OWASP**.](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/06-Session_Management_Testing/README)
 >
@@ -43,6 +43,7 @@ docker-compose up -d
 ---
 
 Creamos el archivo vulnerable: **session.php**
+
 ~~~
 <?php
 session_start();
@@ -80,7 +81,8 @@ Nos informa que se ha iniciado sesión con el usuario introducido:
 
 ![](images/GIS2.png)
 
-¿Por qué es vulnerable?
+
+**¿Por qué es vulnerable?**
 
 1. No se valida ni se sanea el parámetro user, permitiendo inyecciones.
 
@@ -88,15 +90,14 @@ Nos informa que se ha iniciado sesión con el usuario introducido:
 
 3. No hay restricciones de seguridad en la cookie de sesión, facilitando ataques como Session Hijacking o Session Fixation.
 
-4. La sesión puede ser manipulada fácilmente modificando la URL (por ejemplo: ?user=admin).
+4. La sesión puede ser manipulada fácilmente modificando la URL (por ejemplo: ?user=SuperAdmin) para acceder con cualquier usuario, incluso con usuarios privilegiados.
+
 
 ## Explotación de Session Hijacking
 ---
 
 Si un atacante obtiene una cookie de sesión válida, puede suplantar a un usuario legítimo.
 
-
-**Pasos para llevar a cabo el ataque**
 
 1. Capturar la cookie de sesión activa desde el navegador de la víctima.
 
@@ -105,31 +106,36 @@ Si un atacante obtiene una cookie de sesión válida, puede suplantar a un usuar
 3. Si la sesión es válida y reutilizable, la aplicación es vulnerable.
 
 
-🔍 Vamos a Ver como podemos ver el encabezado Set-Cookie para acceder a los datos de sesión.
+**Pasos para obtener las _"Coockies"_en el navegador**
+
+🔍 Vamos a Ver como podemos ver el encabezado **Set-Cookie** para acceder a los datos de sesión.
 
 - Abre tu página en Chrome donde se ejecuta tu código PHP.
 
 - Presiona **F12** o haz clic derecho y selecciona **"Inspeccionar"** para abrir las herramientas de desarrollador.
 
-- Ve a la pestaña **"Network"** (Red).
+- Ve a la pestaña **""Network"** (Red).
 
-- Selecciona la pestaña **all**
+- Selecciona la pestaña **"all"**
+
 
 ![](images/GIS3.png)
 
+
 - Recarga la página (F5) con las herramientas abiertas.
 
-- Busca en la lista de peticiones la que corresponda a tu archivo PHP (por ejemplo: index.php, login.php, etc.).
+- Busca en la lista de peticiones la que corresponda a tu archivo PHP (por ejemplo: **index.php, login.php, etc.**).
 
 - Haz clic en esa petición.
 
 ![](images/GIS4.png)
 
-- Dentro del panel de detalles, selecciona la subpestaña "Headers" (Encabezados).
 
-- Baja hasta la sección "Response Headers" (Encabezados de respuesta).
+- Dentro del panel de detalles, selecciona la subpestaña **"Headers"** (Encabezados).
 
-Ahí deberías ver una línea como: `Cookie` y dentro de ella una variable **PHPSESID** con su valor: `PHPSESSID=abc123xyz456`
+- Baja hasta la sección **"Response Headers"** (Encabezados de respuesta).
+
+Ahí deberías ver una línea como: `Cookie` y dentro de ella una variable `PHPSESID` con su valor: `PHPSESSID=abc123xyz456`
 
 También tenemos justamente debajo el servidor dónde se ha almacenado `host   localhost`
 
@@ -137,7 +143,6 @@ También tenemos justamente debajo el servidor dónde se ha almacenado `host   l
 
 
 **Ataque detallado: Session Hijacking**
-
 
 A continuación, se detalla cómo un atacante puede explotar este código vulnerable para secuestrar la sesión de unusuario legítimo.
 
@@ -152,7 +157,7 @@ A continuación, se detalla cómo un atacante puede explotar este código vulner
 
 	2. El servidor crea una sesión y almacena la variable: `$_SESSION['user'] = 'admin';`
 
-	3. El navegador almacena la cookie de session: `Set-Cookie: PHPSESSID=e6d541e8b64a3117ca7fbc56a4198b8c; path=/;`
+	3. El navegador almacena la cookie de session: `Cookie: PHPSESSID=e6d541e8b64a3117ca7fbc56a4198b8c; path=/;`
 
 	4. Ahora, cada vez que el usuario haga una solicitud, el navegador enviará la cookie: `Cookie: PHPSESSID=e6d541e8b64a3117ca7fbc56a4198b8c`
 
@@ -160,7 +165,7 @@ A continuación, se detalla cómo un atacante puede explotar este código vulner
 	
 	El atacante necesita obtener el Session ID (PHPSESSID) de la víctima. Puede hacerlo de varias formas:
 
-> **Captura de tráfico (MITM)**
+> **Robar Cookie mediante Captura de tráfico (MITM)**
 >
 > Si la web no usa HTTPS, un atacante puede capturar paquetes de red con herramientas como Wireshark:
 >
@@ -169,7 +174,7 @@ A continuación, se detalla cómo un atacante puede explotar este código vulner
 > sudo wireshak 
 >~~~
 >
->Se nos pide introducir una interfaz. Como nosotros estamos virtuaizando, es posible que tengamos muchas, pero vamos a ver la actividad en las diferentes redes.
+>Se nos pide introducir una interfaz de red para capturar el tráfico. Como nosotros estamos virtuaizando, es posible que tengamos muchas, pero vamos a ver la actividad en las diferentes redes.
 >
 >![](images/GIS6.png)
 >
@@ -189,16 +194,16 @@ A continuación, se detalla cómo un atacante puede explotar este código vulner
 >
 >![](images/GIS10.png)
 >
->Ya el atacante tiene los datos de nuestra sesión: `
+>Ya el atacante tiene los datos de nuestra sesión.
 
 
-> **Ataque XSS (Cross-Site Scripting)**
+> **Robar Cookie mediante Ataque XSS (Cross-Site Scripting)**
 >Si la aplicación tiene alguna vulnerabilidad XSS, el atacante puede inyectar un script para robar cookies. 
 >
 > Puedes ver cómo obtener los datos de sesión mediante ataque XSS en la actividad correspondiente: <https://github.com/jmmedinac03vjp/PPS-Unidad3Actividad5-XSS>
 
 
-> **Sniffing en redes WiFi públicas**
+> **Robar Cookie mediante Sniffing en redes WiFi públicas**
 >
 > Si la víctima usa una WiFi pública sin HTTPS, su cookie puede ser interceptada con herramientas como Firesheep o Ettercap.
 >
