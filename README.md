@@ -210,7 +210,9 @@ A continuación, se detalla cómo un atacante puede explotar este código vulner
 >![](images/GIS11.png)
 >
 
+
 **Como utilizar la cookie robada**
+
 Una vez que el atacante tiene la cookie de sesión (PHPSESSID=e6d541e8b64a3117ca7fbc56a4198b8c), la puede utilizar para suplantar a la víctima.
 
 1. Editar cookies en el navegador: Abrir las herramientas de desarrollador (F12 en Chrome).
@@ -239,7 +241,7 @@ curl -b "PHPSESSID=e6d541e8b64a3117ca7fbc56a4198b8c" https://localhost/sesion.ph
 
 ![](images/GIS15.png)
 
-4o Acceso a la cuenta de la víctima
+6. Acceso a la cuenta de la víctima
 
 Ahora el atacante ya puede:
 
@@ -250,6 +252,7 @@ Ahora el atacante ya puede:
 - Hacer compras o transacciones (si la web lo permite).
 
 - Modificar la contraseña del usuario.
+
 
 ## Mitigación de Session Hijacking
 ---
@@ -328,7 +331,8 @@ echo "Sesión iniciada como: " . $_SESSION['user'];
 </html>
 
 ~~~
-Para evitar este ataque, se deben implementar varias medidas:
+Para evitar este ataque, hemos implementado varias medidas:
+
 **Regenerar el ID de sesión en cada inicio de sesión, además guarda en la sesión el valor recibido por `GET['user']`, sanitizándolo para evitar ataques XSS (Cross-Site Scripting).**
 
 ~~~
@@ -343,12 +347,12 @@ Veremos como cada vez que accedamos a la sesión nos generara un valor nuevo de 
 **Configurar la cookie de sesión de forma segura**
 
 Al introducir los siguientes cambios prevenimos accesos de sesión desde la url y desde JavaScript
+
 ~~~
 ini_set('session.cookie_secure', 1);
  // Solo permite cookies en HTTPS
 ini_set('session.cookie_httponly', 1); // Evita acceso desde JavaScript (prevención XSS)
 ini_set('session.use_only_cookies', 1); // Impide sesiones en URL
-
 ~~~
 
 
@@ -473,9 +477,14 @@ service apache2 reload
 
 ### Paso 4: poner dirección en /etc/hosts o habilitar puerto 443
 
-Editar el archivo de configuración de Apache default-ssl.conf :
+Editar el archivo de configuración de Apache `default-ssl.conf`:
+
+~~
 sudo nano /etc/apache2/sites-available/default-ssl.conf
-Modificar o añadir estas líneas dentro de <VirtualHost *:443>:
+~~
+
+Modificar o añadir estas líneas dentro:
+~~~
 <VirtualHost *:443>
 ServerAdmin webmaster@localhost
 ServerName localhost
@@ -488,18 +497,90 @@ AllowOverride All
 Require all granted
 </Directory>
 </VirtualHost>
-3o Habilitar el módulo SSL en Apache
-sudo a2enmod ssl
-sudo a2ensite default-ssl
-sudo systemctl restart apache2
-Ahora el servidor soportaría HTTPS en https://localhost/
-4o Redirigir HTTP a HTTPS automáticamente
-Para asegurarse de que todas las conexiones se realicen por HTTPS, agregar en .htaccess o en default.conf:
+~~~
+
+### Paso 5: Habilitar el módulo SSL en Apache
+En el servidor Apache, activamos **SSL** mediante la habilitación de la configuración `default-ssl.conf`que hemos creado:
+
+~~~
+a2enmod default-ssl
+a2ensite default-ssl
+service apache2 reload
+~~~
+
+Ahora el servidor soportaría **HTTPS**. Accedemos al servidor en la siguiente dirección: `https://localhost/`
+
+### 🔒 Forzar HTTPS en Apache2 (default.conf y .htaccess)
+
+Podemos hacer que todas las solicitudes HTTP sean forzadas a HTTPS. 
+
+Para que todas las conexiones se realicen por HTTPS podemso hacerlo de varias formas:
+
+Tienes dos opciones:
+	1. Configuración en default.conf (archivo de configuración de Apache)
+
+Edita tu archivo de configuración del sitio (por ejemplo /etc/apache2/sites-available/000-default.conf).
+
+
+a) Usar Redirect directo
+apache
+<VirtualHost *:80>
+    ServerName midominio.com
+    ServerAlias www.midominio.com
+
+    Redirect permanent / https://midominio.com/
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName midominio.com
+    DocumentRoot /var/www/html
+
+    SSLEngine on
+    SSLCertificateFile /ruta/al/certificado.crt
+    SSLCertificateKeyFile /ruta/a/la/clave.key
+    SSLCertificateChainFile /ruta/a/la/cadena.crt
+
+    # Configuración adicional para HTTPS
+</VirtualHost>
+
+b) Usar RewriteEngine para mayor flexibilidad
+
+<VirtualHost *:80>
+    ServerName midominio.com
+    ServerAlias www.midominio.com
+
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</VirtualHost>
+
+2. Configuración en .htaccess
+
+Si prefieres hacerlo desde un .htaccess en la raíz del proyecto:
+
 RewriteEngine On
-9
+
+# Si no está usando HTTPS
+
 RewriteCond %{HTTPS} !=on
-RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-Todas las solicitudes HTTP serán forzadas a HTTPS.
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+🔥 Recuerda: Para que .htaccess funcione correctamente, en tu default.conf debes tener habilitado AllowOverride All:
+
+<Directory /var/www/html>
+    AllowOverride All
+</Directory>
+
+También asegúrate que el módulo mod_rewrite esté habilitado:
+
+sudo a2enmod rewrite
+sudo systemctl reload apache2
+
+
+
+![](images/GIS18.png)
+
+
 Verificar que HTTPS funciona correctamente
 1o Acceder a https://localhost/ en el navegador.
 2o Aceptar el certificado autofirmado (en Chrome, haz clic en Avanzado → Proceder).
