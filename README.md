@@ -1,22 +1,21 @@
 # Explotación y Mitigación de Gestión Insegura de Sesiones
 --- 
 Tema: Secuestro de sesiones
-Objetivo: Identificar riesgos en la gestión de sesiones y mitigarlos
 
-# PPS-Unidad3Actividad7-RCE
-Explotación y Mitigación de gestión insegura de sesiones.
 
 Tenemos como **objetivo**:
 
-> - Ver cómo se pueden hacer ataques .
+> - Ver cómo se pueden hacer ataques en la gestión de las sesiones.
 >
-> - Analizar el código de la aplicación que permite ataques de .
+> - Analizar el código de la aplicación que permite ataques de Gestión insegura de sesiones.
 >
 > - Implementar diferentes modificaciones del codigo para aplicar mitigaciones o soluciones.
+
 
 ## ¿Qué es Session Management?
 ---
 El Session Management (gestión de sesiones) es un mecanismo que permite a las aplicaciones web rastrear y mantener el estado de los usuarios a lo largo de múltiples solicitudes HTTP. Una mala implementación puede exponer la aplicación a ataques como Session Hijacking (secuestro de sesión) o reutilización de tokens para suplantación de identidad.
+
 
 ## ACTIVIDADES A REALIZAR
 ---
@@ -248,7 +247,7 @@ Ahora el atacante ya puede:
 - Ver datos personales de la víctima.
 
 - Realizar cambios en la cuenta (si hay opciones de perfil).
--
+
 - Hacer compras o transacciones (si la web lo permite).
 
 - Modificar la contraseña del usuario.
@@ -256,6 +255,71 @@ Ahora el atacante ya puede:
 
 ## Mitigación de Session Hijacking
 ---
+
+Para evitar este ataque, hemos implementado varias medidas (las vemos una a una, tienes el código completo al final de la explicación de todas ellas):
+
+**Regenerar el ID de sesión en cada inicio de sesión, además guarda en la sesión el valor recibido por `GET['user']`, sanitizándolo para evitar ataques XSS (Cross-Site Scripting).**
+
+~~~
+session_start();
+session_regenerate_id(true); // Borra la sesión anterior y genera una nueva
+$_SESSION['user'] = htmlspecialchars($_GET['user'], ENT_QUOTES, 'UTF-8');
+~~~
+
+Veremos como cada vez que accedamos a la sesión nos generara un valor nuevo de PHPSESSID.
+
+
+**Configurar la cookie de sesión de forma segura**
+
+Al introducir los siguientes cambios prevenimos accesos de sesión desde la url y desde JavaScript
+
+~~~
+ini_set('session.cookie_secure', 1);
+ // Solo permite cookies en HTTPS
+ini_set('session.cookie_httponly', 1); // Evita acceso desde JavaScript (prevención XSS)
+ini_set('session.use_only_cookies', 1); // Impide sesiones en URL
+~~~
+
+
+**Validar la IP y User-Agent del usuario**
+
+~~~
+session_start();
+if (!isset($_SESSION['ip'])) {
+	$_SESSION['ip'] = $_SERVER['REMOTE_ADDR'];
+}
+if ($_SESSION['ip'] !== $_SERVER['REMOTE_ADDR']) {
+	session_destroy();
+	header("Location: login.php");
+	exit();
+}
+~~~
+
+
+**Implementar tiempo de expiración de sesión**
+
+~~~
+ini_set('session.gc_maxlifetime', 1800); // Expira en 30 minutos
+session_set_cookie_params(1800);
+~~~
+
+De esta forma la sesión sólo permanece abierta un tiempo determinado.
+
+
+**Usar HTTPS siempre**
+
+Configurar un SSL/TLS para cifrar las cookies y evitar capturas MITM.
+
+~~~
+// Redirigir HTTP a HTTPS si el usuario accede por HTTP
+if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
+	header("Location: https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
+exit();
+}
+~~~
+
+
+### Código seguro.
 
 Creamos el archivo sesion1.php con el siguiente contenido:
 
@@ -331,67 +395,7 @@ echo "Sesión iniciada como: " . $_SESSION['user'];
 </html>
 
 ~~~
-Para evitar este ataque, hemos implementado varias medidas:
 
-**Regenerar el ID de sesión en cada inicio de sesión, además guarda en la sesión el valor recibido por `GET['user']`, sanitizándolo para evitar ataques XSS (Cross-Site Scripting).**
-
-~~~
-session_start();
-session_regenerate_id(true); // Borra la sesión anterior y genera una nueva
-$_SESSION['user'] = htmlspecialchars($_GET['user'], ENT_QUOTES, 'UTF-8');
-~~~
-
-Veremos como cada vez que accedamos a la sesión nos generara un valor nuevo de PHPSESSID.
-
-
-**Configurar la cookie de sesión de forma segura**
-
-Al introducir los siguientes cambios prevenimos accesos de sesión desde la url y desde JavaScript
-
-~~~
-ini_set('session.cookie_secure', 1);
- // Solo permite cookies en HTTPS
-ini_set('session.cookie_httponly', 1); // Evita acceso desde JavaScript (prevención XSS)
-ini_set('session.use_only_cookies', 1); // Impide sesiones en URL
-~~~
-
-
-**Validar la IP y User-Agent del usuario**
-
-~~~
-session_start();
-if (!isset($_SESSION['ip'])) {
-	$_SESSION['ip'] = $_SERVER['REMOTE_ADDR'];
-}
-if ($_SESSION['ip'] !== $_SERVER['REMOTE_ADDR']) {
-	session_destroy();
-	header("Location: login.php");
-	exit();
-}
-~~~
-
-
-**Implementar tiempo de expiración de sesión**
-
-~~~
-ini_set('session.gc_maxlifetime', 1800); // Expira en 30 minutos
-session_set_cookie_params(1800);
-~~~
-
-De esta forma la sesión sólo permanece abierta un tiempo determinado.
-
-
-**Usar HTTPS siempre**
-
-Configurar un SSL/TLS para cifrar las cookies y evitar capturas MITM.
-
-~~~
-// Redirigir HTTP a HTTPS si el usuario accede por HTTP
-if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
-	header("Location: https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
-exit();
-}
-~~~
 
 ### Cómo habilitar HTTPS con SSL/TLS en Localhost (Apache)
 ---
@@ -402,7 +406,7 @@ Para proteger la sesión y evitar ataques Man-in-the-Middle (MITM), es crucial h
 
 1. Generamos un certificado SSL autofirmado
 
-Para entornos de prueba o desarrollo, se puede utilizar un **certificado autofirmado**, es decir, un certificado que no ha sido emitido por una>
+Para entornos de prueba o desarrollo, se puede utilizar un **certificado autofirmado**, es decir, un certificado que no ha sido emitido por una entidad de certificación.
 
 #### Paso 1: Crear la clave privada y el certificado
 ---
