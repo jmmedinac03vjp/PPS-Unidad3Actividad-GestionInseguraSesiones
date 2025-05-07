@@ -323,7 +323,8 @@ exit();
 
 Creamos el archivo sesion1.php con el siguiente contenido:
 
-~~~
+archivo `sesion1.php`
+```php
 <?php
 
 // Configurar la seguridad de la sesión antes de iniciarla
@@ -393,204 +394,72 @@ echo "Sesión iniciada como: " . $_SESSION['user'];
     </form>
 </body>
 </html>
+```
 
-~~~
 
-
-### Cómo habilitar HTTPS con SSL/TLS en Localhost (Apache)
+### Habilitar HTTPS con SSL/TLS (Apache)
 ---
 
-Para proteger la sesión y evitar ataques Man-in-the-Middle (MITM), es crucial habilitar HTTPS en el servidor local. Veamos cómo podemos habilitarlo en Apache con dos métodos diferentes.
+Este apartado está explicado con más detalle en el repositorio sobre Hardening del servidor apache: <https://github.com/jmmedinac03vjp/PPS-Unidad3Actividad13-HardeningSevidorApache-HTTPS-HSTS.git>
 
-**Método 1: Habilitar HTTPS en Apache con OpenSSL**
 
-1. Generamos un certificado SSL autofirmado
+En resumen 
 
-Para entornos de prueba o desarrollo, se puede utilizar un **certificado autofirmado**, es decir, un certificado que no ha sido emitido por una entidad de certificación.
+- Crear Certificados:
 
-#### Paso 1: Crear la clave privada y el certificado
----
+- Modificar archivo de configuración de sitio virtual:
 
-Como estamos trabajando bajo docker, accedemos al servidor:
+archivo `/etc/apache2/sites-available/default-ssl.conf`
+```apache
+<VirtualHost *:80>
 
-~~~
-docker exec -it lamp-php83 /bin/bash
-~~~
+    ServerName www.pps.edu
 
-comprobamos que están creados los directorios donde se guardan los certificados y creamos el certificado autofirmado:
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/html
 
-~~~
-mkdir /etc/apache2/ssl
-cd /etc/apache2/ssl
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout localhost.key -out localhost.crt
-~~~
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
 
-**Explicación de los parámetros del comando:**
+</VirtualHost>
 
-- `req`: inicia la generación de una solicitud de certificado.
-- `-x509`: crea un certificado autofirmado en lugar de una CSR.
-- `-nodes`: omite el cifrado de la clave privada, evitando el uso de contraseña.
-- `-newkey rsa:2048`: genera una nueva clave RSA de 2048 bits.
-- `-keyout server.key`: nombre del archivo que contendrá la clave privada.
-- `-out server.crt`: nombre del archivo de salida para el certificado.
-- `-days 365`: el certificado será válido por 365 días.
-
-Durante la ejecución del comando, se te solicitará que completes datos como país, nombre de organización, y nombre común (dominio).
-
-![](images/GIS16.png)
-
-Vemos como se han creado el certificado y la clave pública
-![](images/GIS17.png)
-
-### Paso 2.Configurar Apache para usar HTTPS
-
-Una vez que tengas el certificado y la clave privada, debes configurar Apache para utilizarlos.
-
-Edita el archivo de configuración SSL, por ejemplo:
-~~~
-cd /etc/apache2/sites-available 
-// Hacemos copia de seguridad de archivo de configuracion  ssl 
-
-cp default-ssl.conf default-ssl.conf.old
-
-// modificamos archivos de configuracion
-nano default-ssl.conf
-~~~
-
-Introducimos el siguiente contenido en el archivo de configuración:
-
-~~~
 <VirtualHost *:443>
     ServerName www.pps.edu
 
-    SSLEngine on
-    SSLCertificateFile /etc/ssl/certs/server.crt
-    SSLCertificateKeyFile /etc/ssl/private/server.key
-
     DocumentRoot /var/www/html
-</VirtualHost>
 
-~~~
+    #activar uso del motor de protocolo SSL
+    SSLEngine on
+    SSLCertificateFile /etc/apache2/ssl/server.crt
+    SSLCertificateKeyFile /etc/apache2/ssl/server.key
+    # solo usar versiones modernas
+    SSLProtocol TLSv1.2 TLSv1.3
+    # Forzar solo cifrados seguros
+    SSLCipherSuite HIGH:!aNULL:!MD5
+    # Activar HSTS
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+</VirtualHost>```
+
 Date cuenta que hemos creado un **servidor virtual** con nombre **www.pps.edu**. A partir de ahora tendremos que introducir en la barra de dirección del navegador `https://www.pps.edu` en vez de `https://localhost`.
 
-### Paso3: Luego habilita SSL y el sitio:
+- Habilitar módulo `SSL`
 
-~~~
+```bash
 a2enmod ssl
 a2ensite default-ssl.conf
 service apache2 reload
-~~~
+```
 
-### Paso 4: poner dirección en /etc/hosts o habilitar puerto 443
+- Añadir el sitio en `/etc/hosts`
 
-Editar el archivo de configuración de Apache `default-ssl.conf`:
+Ahora el servidor soportaría **HTTPS**. Accedemos al servidor en la siguiente dirección: `https://pps.edu/`
 
-~~
-sudo nano /etc/apache2/sites-available/default-ssl.conf
-~~
-
-Modificar o añadir estas líneas dentro:
-~~~
-<VirtualHost *:443>
-ServerAdmin webmaster@localhost
-ServerName localhost
-DocumentRoot /var/www/html
-SSLEngine on
-SSLCertificateFile /etc/apache2/ssl/localhost.crt
-SSLCertificateKeyFile /etc/apache2/ssl/localhost.key
-<Directory /var/www/html>
-AllowOverride All
-Require all granted
-</Directory>
-</VirtualHost>
-~~~
-
-### Paso 5: Habilitar el módulo SSL en Apache
-En el servidor Apache, activamos **SSL** mediante la habilitación de la configuración `default-ssl.conf`que hemos creado:
-
-~~~
-a2enmod default-ssl
-a2ensite default-ssl
-service apache2 reload
-~~~
-
-Ahora el servidor soportaría **HTTPS**. Accedemos al servidor en la siguiente dirección: `https://localhost/`
-
-### 🔒 Forzar HTTPS en Apache2 (default.conf y .htaccess)
-
-Podemos hacer que todas las solicitudes HTTP sean forzadas a HTTPS. 
-
-Para que todas las conexiones se realicen por HTTPS po hacerlo de varias formas:
-
-Tienes dos opciones:
-	1. Configuración en default.conf (archivo de configuración de Apache)
-
-Edita tu archivo de configuración del sitio (por ejemplo /etc/apache2/sites-available/000-default.conf).
-
-
-a) Usar Redirect directo
-~~~
-<VirtualHost *:80>
-    ServerName midominio.com
-    ServerAlias www.midominio.com
-
-    Redirect permanent / https://midominio.com/
-</VirtualHost>
-
-<VirtualHost *:443>
-    ServerName midominio.com
-    DocumentRoot /var/www/html
-
-    SSLEngine on
-    SSLCertificateFile /ruta/al/certificado.crt
-    SSLCertificateKeyFile /ruta/a/la/clave.key
-    SSLCertificateChainFile /ruta/a/la/cadena.crt
-
-    # Configuración adicional para HTTPS
-</VirtualHost>
-
-b) Usar RewriteEngine para mayor flexibilidad
-
-<VirtualHost *:80>
-    ServerName midominio.com
-    ServerAlias www.midominio.com
-
-    RewriteEngine On
-    RewriteCond %{HTTPS} off
-    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-</VirtualHost>
-
-2. Configuración en .htaccess
-
-Si prefieres hacerlo desde un .htaccess en la raíz del proyecto:
-
-RewriteEngine On
-
-# Si no está usando HTTPS
-
-RewriteCond %{HTTPS} !=on
-RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-
-🔥 Recuerda: Para que .htaccess funcione correctamente, en tu default.conf debes tener habilitado AllowOverride All:
-
-<Directory /var/www/html>
-    AllowOverride All
-</Directory>
-
-También asegúrate que el módulo mod_rewrite esté habilitado:
-
-sudo a2enmod rewrite
-sudo systemctl reload apache2
+![](images/GIS19.png)
 
 
 
-![](images/GIS18.png)
 
 
-Verificar que HTTPS funciona correctamente
-1o Acceder a https://localhost/ en el navegador.
-2o Aceptar el certificado autofirmado (en Chrome, haz clic en Avanzado → Proceder).
-3o Verificar que las cookies de sesión ahora tienen Secure activado:
 •
 ![](images/GIS15.png)
 ![](images/GIS15.png)
