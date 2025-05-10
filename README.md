@@ -31,7 +31,7 @@ Vamos realizando operaciones:
 
 ### Iniciar entorno de pruebas
 
--Situáte en la carpeta de del entorno de pruebas de nuestro servidor LAMP e inicia el esce>
+-Situáte en la carpeta de del entorno de pruebas de nuestro servidor LAMP e inicia el escenario docker.
 
 ~~~
 docker-compose up -d
@@ -105,7 +105,7 @@ Si un atacante obtiene una cookie de sesión válida, puede suplantar a un usuar
 3. Si la sesión es válida y reutilizable, la aplicación es vulnerable.
 
 
-**Pasos para obtener las _"Coockies"_en el navegador**
+**Pasos para obtener las `Coockies` en el navegador**
 
 🔍 Vamos a Ver como podemos ver el encabezado **Set-Cookie** para acceder a los datos de sesión.
 
@@ -134,7 +134,7 @@ Si un atacante obtiene una cookie de sesión válida, puede suplantar a un usuar
 
 - Baja hasta la sección **"Response Headers"** (Encabezados de respuesta).
 
-Ahí deberías ver una línea como: `Cookie` y dentro de ella una variable `PHPSESID` con su valor: `PHPSESSID=abc123xyz456`
+Ahí deberías ver una línea como: `Cookie` y dentro de ella una variable `PHPSESID` con su valor, en mi caso, `PHPSESSID=PHPSESSID=e6d541e8b64a3117ca7fbc56a4198b8c`
 
 También tenemos justamente debajo el servidor dónde se ha almacenado `host   localhost`
 
@@ -168,9 +168,9 @@ A continuación, se detalla cómo un atacante puede explotar este código vulner
 >
 > Si la web no usa HTTPS, un atacante puede capturar paquetes de red con herramientas como Wireshark:
 >
->1. Iniciar Wireshark y
+>1. Iniciar Wireshark 
 > ~~~
-> sudo wireshak 
+> sudo wireshark 
 >~~~
 >
 >Se nos pide introducir una interfaz de red para capturar el tráfico. Como nosotros estamos virtuaizando, es posible que tengamos muchas, pero vamos a ver la actividad en las diferentes redes.
@@ -253,7 +253,7 @@ Ahora el atacante ya puede:
 - Modificar la contraseña del usuario.
 
 
-## Mitigación de Session Hijacking
+### **Código seguro**
 ---
 
 Para evitar este ataque, hemos implementado varias medidas (las vemos una a una, tienes el código completo al final de la explicación de todas ellas):
@@ -266,44 +266,50 @@ session_regenerate_id(true); // Borra la sesión anterior y genera una nueva
 $_SESSION['user'] = htmlspecialchars($_GET['user'], ENT_QUOTES, 'UTF-8');
 ~~~
 
+> - En el inicio de sesión borramos los datos de la sesión anterior y generamos una nueva.
+>
+> - Sanitizamos la entrada.
+
 Veremos como cada vez que accedamos a la sesión nos generara un valor nuevo de PHPSESSID.
 
 
-**Configurar la cookie de sesión de forma segura**
-
-Al introducir los siguientes cambios prevenimos accesos de sesión desde la url y desde JavaScript
+**Configurar la cookie de sesión de forma segura y tiempo de expiración de sesión**
 
 ~~~
-ini_set('session.cookie_secure', 1);
- // Solo permite cookies en HTTPS
-ini_set('session.cookie_httponly', 1); // Evita acceso desde JavaScript (prevención XSS)
-ini_set('session.use_only_cookies', 1); // Impide sesiones en URL
+// Configuración segura de la cookie de sesiónn
+session_set_cookie_params([
+    'lifetime' => 1800,
+    'path' => '/',
+    'domain' => 'pps.edu', //   IMPORTANTE! Esto solo funcionar   en pps.edu, no en localhost
+    'secure' => true,
+    'httponly' => true,
+    'samesite' => 'Lax'
+]);
 ~~~
 
+> - La sesión sólo permanece abierta un tiempo determinado.
+>
+> - Anulamos ejecución de JavaScript
+>
+> - No permitimos sesion introducida directamente en URL, sólo a través de las cookies
+>
+> - Sólo funciona en el sitio especificado "pps.edu" no localhost ni ningún otro dominio.
 
 **Validar la IP y User-Agent del usuario**
 
 ~~~
-session_start();
+// Validaci  n de IP para evitar Session Hijacking
 if (!isset($_SESSION['ip'])) {
-	$_SESSION['ip'] = $_SERVER['REMOTE_ADDR'];
+    $_SESSION['ip'] = $_SERVER['REMOTE_ADDR'];
+} elseif ($_SESSION['ip'] !== $_SERVER['REMOTE_ADDR']) {
+    session_unset();
+    session_destroy();
+    $sesion_valida = false;
 }
-if ($_SESSION['ip'] !== $_SERVER['REMOTE_ADDR']) {
-	session_destroy();
-	header("Location: login.php");
-	exit();
-}
 ~~~
 
+> - Si la IP desde dónde se estableció la sesión guardada es diferente de la solicitud que se realiza destruimos la sesión
 
-**Implementar tiempo de expiración de sesión**
-
-~~~
-ini_set('session.gc_maxlifetime', 1800); // Expira en 30 minutos
-session_set_cookie_params(1800);
-~~~
-
-De esta forma la sesión sólo permanece abierta un tiempo determinado.
 
 
 **Usar HTTPS siempre**
@@ -325,75 +331,92 @@ Creamos el archivo sesion1.php con el siguiente contenido:
 
 archivo `sesion1.php`
 ```php
-<?php
+.<?php
 
-// Configurar la seguridad de la sesión antes de iniciarla
-ini_set('session.cookie_secure', 1);
+// Bloquear acceso desde hosts no permitidos
+$host_permitido = 'pps.edu';
+if ($_SERVER['HTTP_HOST'] !== $host_permitido && $_SERVER['HTTP_HOST'] !== 'www.' . $host_permitido) {
+    die("Acceso no autorizado: este script solo puede ejecutarse en $host_permitido");
+}
 
- // Solo permite cookies en HTTPS
-ini_set('session.cookie_httponly', 1); // Evita acceso desde JavaScript (prevención XSS)
-ini_set('session.use_only_cookies', 1); // Impide sesiones en URL
-ini_set('session.gc_maxlifetime', 1800); // Expira en 30 minutos
-session_set_cookie_params(1800); // Configura el tiempo de vida de la cookie de sesión
+// Mostrar errores durante pruebas
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 // Redirigir HTTP a HTTPS si el usuario accede por HTTP
 if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
-        header("Location: https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
-        exit();
+    header("Location: https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
+    exit();
 }
+
+// Configuraci  n segura de la cookie de sesi  n
+session_set_cookie_params([
+    'lifetime' => 1800,
+    'path' => '/',
+    'domain' => 'pps.edu', //   IMPORTANTE! Esto solo funcionar   en pps.edu, no en localhost
+    'secure' => true,
+    'httponly' => true,
+    'samesite' => 'Lax'
+]);
 
 session_start();
-session_regenerate_id(true); // Borra la sesión anterior y genera una nueva
+session_regenerate_id(true); // Prevenci  n de session fixation
 
-// Validación de IP para evitar Session Hijacking
+$sesion_valida = true;
+
+// Validaci  n de IP para evitar Session Hijacking
 if (!isset($_SESSION['ip'])) {
-        $_SESSION['ip'] = $_SERVER['REMOTE_ADDR']; // Guarda la IP al iniciar sesión
+    $_SESSION['ip'] = $_SERVER['REMOTE_ADDR'];
 } elseif ($_SESSION['ip'] !== $_SERVER['REMOTE_ADDR']) {
-        session_destroy(); // Destruir la sesión si la IP cambia
-        header("Location: login.php");
-        exit();
+    session_unset();
+    session_destroy();
+    $sesion_valida = false;
 }
 
-// Verificar tiempo de inactividad para expirar la sesión
-if (!isset($_SESSION['last_activity'])) {
-        $_SESSION['last_activity'] = time(); // Registrar el primer acceso
-} elseif (time() - $_SESSION['last_activity'] > 1800) { // 30 minutos
-        session_unset(); // Eliminar variables de sesión
-        session_destroy(); // Destruir la sesión
-        header("Location: login.php");
-        exit();
-} else {
-        $_SESSION['last_activity'] = time(); // Reiniciar el temporizador
+// Verificar tiempo de inactividad (30 minutos)
+if ($sesion_valida) {
+    if (!isset($_SESSION['last_activity'])) {
+        $_SESSION['last_activity'] = time();
+    } elseif (time() - $_SESSION['last_activity'] > 1800) {
+        session_unset();
+        session_destroy();
+        $sesion_valida = false;
+    } else {
+        $_SESSION['last_activity'] = time();
+    }
 }
 
-// Protección contra XSS en el usuario
-if (!isset($_SESSION['user'])) {
+// Procesar usuario si la sesi  n es v  lida
+if ($sesion_valida) {
+    if (!isset($_SESSION['user'])) {
         if (isset($_GET['user'])) {
-                $_SESSION['user'] = htmlspecialchars($_GET['user'], ENT_QUOTES, 'UTF-8');
+            $_SESSION['user'] = htmlspecialchars($_GET['user'], ENT_QUOTES, 'UTF-8');
         } else {
-                $_SESSION['user'] = "Desconocido"; // Evita variable indefinida
+            $_SESSION['user'] = "Desconocido";
         }
+    }
+    $mensaje = " ^|^e Sesi  n iniciada como: " . $_SESSION['user'];
+} else {
+    $mensaje = " ^z   ^o Error: sesi  n inv  lida por IP no coincidente o inactividad. Vuelve a iniciar sesi  n.";
 }
-// Mostrar la sesión activa
-echo "Sesión iniciada como: " . $_SESSION['user'];
-
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Inicio de Sesión Inseguro</title>
+    <title>Inicio de Sesi  n Seguro</title>
 </head>
 <body>
-    <h2>Iniciar sesión</h2>
+    <h2>Iniciar sesi  n</h2>
+    <p><?= $mensaje ?></p>
     <form method="GET">
         <label for="user">Usuario:</label>
         <input type="text" id="user" name="user" required>
-        <button type="submit">Iniciar sesión</button>
+        <button type="submit">Iniciar sesi  n</button>
     </form>
 </body>
 </html>
+
 ```
 
 
@@ -432,13 +455,12 @@ archivo `/etc/apache2/sites-available/default-ssl.conf`
     SSLEngine on
     SSLCertificateFile /etc/apache2/ssl/server.crt
     SSLCertificateKeyFile /etc/apache2/ssl/server.key
-    # solo usar versiones modernas
-    SSLProtocol TLSv1.2 TLSv1.3
-    # Forzar solo cifrados seguros
-    SSLCipherSuite HIGH:!aNULL:!MD5
-    # Activar HSTS
-    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-</VirtualHost>```
+    <Directory /var/www/html>
+	AllowOverride All
+	Require all granted
+    </Directory>
+</VirtualHost>
+```
 
 Date cuenta que hemos creado un **servidor virtual** con nombre **www.pps.edu**. A partir de ahora tendremos que introducir en la barra de dirección del navegador `https://www.pps.edu` en vez de `https://localhost`.
 
@@ -452,114 +474,48 @@ service apache2 reload
 
 - Añadir el sitio en `/etc/hosts`
 
-Ahora el servidor soportaría **HTTPS**. Accedemos al servidor en la siguiente dirección: `https://pps.edu/`
+- Comprobar que está habilitado https en el navegador:
+
+Abrir DevTools (F12 en Chrome o Firefox).
+
+Ir a Application → Storage → Cookies → pps.edu.
+
+Comprobar que la cookie de sesión tiene el flag Secure habilitado.
+
+![](images/GIS20.png)
+
+
+> Ahora el servidor soportaría **HTTPS**. Accedemos al servidor en la siguiente dirección: `https://pps.edu/sesion1.php`
+
 
 ![](images/GIS19.png)
 
 
+**🔒 Medidas de seguridad implementadass**
+
+- Seguridad en sesiones:
+
+	- Cookies seguras (HTTPS, HttpOnly, Only Cookies)
+
+	- Regeneración de sesión
+
+	- Validación de IP
+
+	- Expiración por inactividad
+
+	- Uso de`session_set_cookie_params()` en PHP 8.3 con array de opciones, para securizar cookies.
 
 
+- Protección contra ataques:
 
-•
-![](images/GIS15.png)
-![](images/GIS15.png)
-•
-•
-Abrir DevTools (F12 en Chrome o Firefox).
-Ir a Application → Storage → Cookies → localhost.
-Comprobar que la cookie de sesión tiene el flag Secure habilitado.
-Código completo
-<?php
-// Configurar la seguridad de la sesión antes de iniciarla
-ini_set('session.cookie_secure', 1);
- // Solo permite cookies en HTTPS
-ini_set('session.cookie_httponly', 1); // Evita acceso desde JavaScript (prevención XSS)
-ini_set('session.use_only_cookies', 1); // Impide sesiones en URL
-ini_set('session.gc_maxlifetime', 1800); // Expira en 30 minutos
-session_set_cookie_params(1800); // Configura el tiempo de vida de la cookie de sesión
-// Redirigir HTTP a HTTPS si el usuario accede por HTTP
-if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
-header("Location: https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
-exit();
-}
-session_start();
-session_regenerate_id(true); // Borra la sesión anterior y genera una nueva
-// Validación de IP para evitar Session Hijacking
-if (!isset($_SESSION['ip'])) {
-$_SESSION['ip'] = $_SERVER['REMOTE_ADDR']; // Guarda la IP al iniciar sesión
-} elseif ($_SESSION['ip'] !== $_SERVER['REMOTE_ADDR']) {
-session_destroy(); // Destruir la sesión si la IP cambia
-header("Location: login.php");
-exit();
-}
-// Verificar tiempo de inactividad para expirar la sesión
-if (!isset($_SESSION['last_activity'])) {
-$_SESSION['last_activity'] = time(); // Registrar el primer acceso
-} elseif (time() - $_SESSION['last_activity'] > 1800) { // 30 minutos
-session_unset(); // Eliminar variables de sesión
-session_destroy(); // Destruir la sesión
-header("Location: login.php");
-exit();
-} else {
-$_SESSION['last_activity'] = time(); // Reiniciar el temporizador
-}
-// Protección contra XSS en el usuario
-if (!isset($_SESSION['user'])) {
-10
-}
-if (isset($_GET['user'])) {
-$_SESSION['user'] = htmlspecialchars($_GET['user'], ENT_QUOTES, 'UTF-8');
-} else {
-$_SESSION['user'] = "Desconocido"; // Evita variable indefinida
-}
-// Mostrar la sesión activa
-echo "Sesión iniciada como: " . $_SESSION['user'];
-?>
-* Resumen de las medidas de seguridad implementadas
-Seguridad en sesiones:
-o Cookies seguras (HTTPS, HttpOnly, Only Cookies)
-o Regeneración de sesión
-o Validación de IP
-o Expiración por inactividad
-Protección contra ataques:
-o Prevención de XSS con htmlspecialchars()
-o Protección contra secuestro de sesión (Session Hijacking)
-o Redirección a HTTPS para evitar ataques MITM
-Este código refuerza la seguridad de sesiones en PHP y es una buena práctica para aplicaciones web que
-manejen autenticación de usuarios.
-11
+	- Prevención de XSS con htmlspecialchars()
 
+	- Protección contra secuestro de sesión (Session Hijacking)
 
+	- Redirección a HTTPS para evitar ataques MITM
 
+Este código refuerza la seguridad de sesiones en PHP y es una buena práctica para aplicaciones web que manejen autenticación de usuarios.
 
-
-
-
-![](images/.png)
-
-
-### **Código seguro**
----
-
-Aquí está el código securizado:
-
-🔒 Medidas de seguridad implementadas
-
-- :
-
-        - 
-
-        - 
-
-
-
-🚀 Resultado
-
-✔ 
-
-✔ 
-
-✔ 
 
 ## ENTREGA
 
