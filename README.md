@@ -331,7 +331,7 @@ Creamos el archivo sesion1.php con el siguiente contenido:
 
 archivo `sesion1.php`
 ```php
-.<?php
+<?php
 
 // Bloquear acceso desde hosts no permitidos
 $host_permitido = 'pps.edu';
@@ -394,7 +394,7 @@ if ($sesion_valida) {
         } else {
             $_SESSION['user'] = "Desconocido";
         }
-    }
+    
     $mensaje = " ^|^e Sesi  n iniciada como: " . $_SESSION['user'];
 } else {
     $mensaje = " ^z   ^o Error: sesi  n inv  lida por IP no coincidente o inactividad. Vuelve a iniciar sesi  n.";
@@ -416,7 +416,6 @@ if ($sesion_valida) {
     </form>
 </body>
 </html>
-
 ```
 
 
