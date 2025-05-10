@@ -253,6 +253,9 @@ Ahora el atacante ya puede:
 - Modificar la contraseña del usuario.
 
 
+### Mitigación de problemas
+---
+
 ### **Código seguro**
 ---
 
@@ -607,6 +610,111 @@ Agregar un botón de cierre en HTML:
 ---
 
 Este conjunto de ejemplos permite ilustrar tanto las amenazas reales como las buenas prácticas en el manejo de sesiones en PHP, ideal para una clase o entorno de formación en seguridad web.
+
+---
+
+
+## CODIGO SEGURO
+
+Archivo seguro `sesion2.php`
+```PHP
+<?php
+// Redirigir HTTP a HTTPS
+if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
+    header("Location: https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
+    exit();
+}
+
+// Configuración segura de cookies
+session_set_cookie_params([
+    'lifetime' => 1800,
+    'path' => '/',
+    'domain' => 'pps.edu',
+    'secure' => true,
+    'httponly' => true,
+    'samesite' => 'Strict'
+]);
+
+session_start();
+
+// Simulación de ataque por fijación de sesión
+if (isset($_GET['fix_session_id'])) {
+    session_id($_GET['fix_session_id']); // Sólo demostración
+}
+
+session_regenerate_id(true);
+
+// Validación IP + User-Agent
+if (!isset($_SESSION['ip']) || !isset($_SESSION['user_agent'])) {
+    $_SESSION['ip'] = $_SERVER['REMOTE_ADDR'];
+    $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
+} elseif ($_SESSION['ip'] !== $_SERVER['REMOTE_ADDR'] || $_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
+    session_destroy();
+    die("⚠️ Posible secuestro de sesión detectado.");
+}
+
+// Expiración por inactividad
+if (!isset($_SESSION['last_activity'])) {
+    $_SESSION['last_activity'] = time();
+} elseif (time() - $_SESSION['last_activity'] > 1800) {
+    session_unset();
+    session_destroy();
+    header("Location: sesion2.php?timeout=1");
+    exit();
+} else {
+    $_SESSION['last_activity'] = time();
+}
+
+// Control de intentos (simulado)
+if (!isset($_SESSION['intentos'])) {
+    $_SESSION['intentos'] = 0;
+}
+if ($_SESSION['intentos'] >= 5) {
+    die("⚠️ Demasiados intentos. Inténtalo más tarde.");
+}
+
+// Logout
+if (isset($_GET['logout'])) {
+    session_unset();
+    session_destroy();
+    header("Location: sesion2.php?loggedout=1");
+    exit();
+}
+
+// Captura de usuario
+if (isset($_GET['user'])) {
+    $_SESSION['user'] = htmlspecialchars($_GET['user'], ENT_QUOTES, 'UTF-8');
+}
+
+$usuario = $_SESSION['user'] ?? null;
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Inicio de Sesión Seguro</title>
+</head>
+<body>
+    <h2>Iniciar sesión</h2>
+    <?php if (isset($_GET['timeout'])): ?>
+        <p style="color:red;">⏳ La sesión ha expirado por inactividad.</p>
+    <?php elseif (isset($_GET['loggedout'])): ?>
+        <p style="color:green;">✅ Sesión cerrada correctamente.</p>
+    <?php endif; ?>
+
+    <?php if ($usuario): ?>
+        <p>✅ Sesión iniciada como: <strong><?= $usuario ?></strong></p>
+        <p><a href="?logout=1">Cerrar sesión</a></p>
+    <?php else: ?>
+        <form method="GET">
+            <label for="user">Usuario:</label>
+            <input type="text" id="user" name="user" required>
+            <button type="submit">Iniciar sesión</button>
+        </form>
+    <?php endif; ?>
+</body>
+</html>
+```
 
 
 ## ENTREGA
