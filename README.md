@@ -21,7 +21,7 @@ El Session Management (gestión de sesiones) es un mecanismo que permite a las a
 ---
 > Lee detenidamente la sección de autenticación de la página de PortWigger <https://portswigger.net/web-security/authentication#what-is-authentication>
 >
-> Lee el siguiente documento sobre Explotación y Mitigación de Gestión de sesiones inseguras <./files/ExplotacionMitigacionGestionInseguraSesiones.pdf>
+> Lee el siguiente documento sobre [Explotación y Mitigación de Gestión de sesiones inseguras] (files/ExplotacionMitigacionGestionInseguraSesiones.pdf)
 > 
 > También y como marco de referencia, tienes [ la sección de correspondiente de Gestión de Sesiones  del **Proyecto Web Security Testing Guide** (WSTG) del proyecto **OWASP**.](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/06-Session_Management_Testing/README)
 >
