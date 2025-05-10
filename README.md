@@ -14,14 +14,14 @@ Tenemos como **objetivo**:
 
 ## ¿Qué es Session Management?
 ---
-El Session Management (gestión de sesiones) es un mecanismo que permite a las aplicaciones web rastrear y mantener el estado de los usuarios a lo largo de múltiples solicitudes HTTP. Una mala implementación puede exponer la aplicación a ataques como Session Hijacking (secuestro de sesión) o reutilización de tokens para suplantación de identidad.
+**Session Management** (gestión de sesiones) es un mecanismo que permite a las aplicaciones web rastrear y mantener el estado de los usuarios a lo largo de múltiples solicitudes HTTP. Una mala implementación puede exponer la aplicación a ataques como Session Hijacking (secuestro de sesión) o reutilización de tokens para suplantación de identidad.
 
 
 ## ACTIVIDADES A REALIZAR
 ---
 > Lee detenidamente la sección de autenticación de la página de PortWigger <https://portswigger.net/web-security/authentication#what-is-authentication>
 >
-> Lee el siguiente documento sobre [Explotación y Mitigación de Gestión de sesiones inseguras] (files/ExplotacionMitigacionGestionInseguraSesiones.pdf)
+> Lee el siguiente documento sobre [Explotación y Mitigación de Gestión de sesiones inseguras](files/ExplotacionMitigacionGestionInseguraSesiones.pdf)
 > 
 > También y como marco de referencia, tienes [ la sección de correspondiente de Gestión de Sesiones  del **Proyecto Web Security Testing Guide** (WSTG) del proyecto **OWASP**.](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/06-Session_Management_Testing/README)
 >
@@ -31,7 +31,7 @@ Vamos realizando operaciones:
 
 ### Iniciar entorno de pruebas
 
--Situáte en la carpeta de del entorno de pruebas de nuestro servidor LAMP e inicia el escenario docker.
+Situáte en la carpeta de del entorno de pruebas de nuestro servidor LAMP e inicia el escenario docker.
 
 ~~~
 docker-compose up -d
@@ -83,16 +83,52 @@ Nos informa que se ha iniciado sesión con el usuario introducido:
 
 **¿Por qué es vulnerable?**
 
-1. No se valida ni se sanea el parámetro user, permitiendo inyecciones.
+1. No se valida ni se sanea el parámetro `user`, permitiendo inyecciones.
 
 2. No se regenera el identificador de sesión al iniciar sesión, permitiendo reutilización de sesiones.
 
-3. No hay restricciones de seguridad en la cookie de sesión, facilitando ataques como Session Hijacking o Session Fixation.
+3. No hay restricciones de seguridad en la cookie de sesión, facilitando ataques como `Session Hijacking` o `Session Fixation`.
 
-4. La sesión puede ser manipulada fácilmente modificando la URL (por ejemplo: ?user=SuperAdmin) para acceder con cualquier usuario, incluso con usuarios privilegiados.
+4. La sesión puede ser manipulada fácilmente modificando la URL (por ejemplo añadiendo: `?user=SuperAdmin`) para acceder con cualquier usuario, incluso con usuarios privilegiados.
 
+## Simulación de ataques y mejoras de seguridad en sesiones PHP
 
-## Explotación de Session Hijacking
+Tienes estos ejemplos para simular ataques comunes a sesiones en PHP y contramedidas recomendadas para mitigarlos. Diseñado para propósitos educativos.
+
+## 🔧 1. Simulación de ataques y fallos típicos
+
+### 📛 A. Ataque por *Session Fixation*
+
+```php
+// Simular ataque por fijación de sesión
+if (isset($_GET['fix_session_id'])) {
+    session_id($_GET['fix_session_id']); // Forzar ID de sesión proporcionado
+}
+```
+
+* URL de prueba: `https://pps.edu/sesion1.php?fix_session_id=ABC123`
+
+### 📛 B. Ataque por *Session Hijacking* (Mejora IP + User-Agent)
+
+```php
+// Validación adicional con User-Agent
+if (!isset($_SESSION['user_agent'])) {
+    $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
+} elseif ($_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
+    session_destroy();
+    die("⚠️ Posible secuestro de sesión detectado.");
+}
+```
+
+### 📛 C. Vulnerabilidad XSS persistente (sólo con fines demostrativos)
+
+```php
+// Versión vulnerable (comentada para evitar ejecución real)
+// $_SESSION['user'] = $_GET['user']; // vulnerable a <script>alert(1)</script>
+```
+
+---
+### Explotación de Session Hijacking
 ---
 
 Si un atacante obtiene una cookie de sesión válida, puede suplantar a un usuario legítimo.
@@ -252,22 +288,28 @@ Ahora el atacante ya puede:
 
 - Modificar la contraseña del usuario.
 
+---
 
 ### Mitigación de problemas
----
-
-### **Código seguro**
----
 
 Para evitar este ataque, hemos implementado varias medidas (las vemos una a una, tienes el código completo al final de la explicación de todas ellas):
 
-**Regenerar el ID de sesión en cada inicio de sesión, además guarda en la sesión el valor recibido por `GET['user']`, sanitizándolo para evitar ataques XSS (Cross-Site Scripting).**
 
-~~~
-session_start();
-session_regenerate_id(true); // Borra la sesión anterior y genera una nueva
+
+**Prevenir vulnerabilidades `XSS`**
+
+Usar `htmlspecialchars()` siempre que se muestre información del usuario:
+
+```php
 $_SESSION['user'] = htmlspecialchars($_GET['user'], ENT_QUOTES, 'UTF-8');
-~~~
+```
+
+
+**Prevenir vulnerabilidades `Session Fixation`, regenerando el ID de sesión en cada inicio de sesión, además guarda en la sesión el valor recibido por `GET['user']`, sanitizándolo para evitar ataques XSS (Cross-Site Scripting).**
+
+``` php
+$_SESSION['user'] = htmlspecialchars($_GET['user'], ENT_QUOTES, 'UTF-8');
+```
 
 > - En el inicio de sesión borramos los datos de la sesión anterior y generamos una nueva.
 >
@@ -328,9 +370,7 @@ exit();
 ~~~
 
 
-### Código seguro.
-
-Creamos el archivo sesion1.php con el siguiente contenido:
+Creamos el archivo `sesion1.php` con el siguiente contenido:
 
 archivo `sesion1.php`
 ```php
@@ -518,54 +558,7 @@ Comprobar que la cookie de sesión tiene el flag Secure habilitado.
 
 Este código refuerza la seguridad de sesiones en PHP y es una buena práctica para aplicaciones web que manejen autenticación de usuarios.
 
-## Para completar (Opcional)
 
-## Simulación de ataques y mejoras de seguridad en sesiones PHP
-
-Este documento incluye ejemplos para simular ataques comunes a sesiones en PHP y contramedidas recomendadas para mitigarlos. Diseñado para propósitos educativos.
-
----
-
-### 🔧 1. Simulación de ataques y fallos típicos
-
-#### 📛 A. Ataque por *Session Fixation*
-
-```php
-// Simular ataque por fijación de sesión
-if (isset($_GET['fix_session_id'])) {
-    session_id($_GET['fix_session_id']); // Forzar ID de sesión proporcionado
-}
-```
-
-* URL de prueba: `https://pps.edu/sesion1.php?fix_session_id=ABC123`
-* Prevenir regenerando el ID tras login: `session_regenerate_id(true);`
-
-#### 📛 B. Ataque por *Session Hijacking* (Mejora IP + User-Agent)
-
-```php
-// Validación adicional con User-Agent
-if (!isset($_SESSION['user_agent'])) {
-    $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
-} elseif ($_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
-    session_destroy();
-    die("⚠️ Posible secuestro de sesión detectado.");
-}
-```
-
-#### 📛 C. Vulnerabilidad XSS persistente (sólo con fines demostrativos)
-
-```php
-// Versión vulnerable (comentada para evitar ejecución real)
-// $_SESSION['user'] = $_GET['user']; // vulnerable a <script>alert(1)</script>
-```
-
-Usar `htmlspecialchars()` siempre que se muestre información del usuario:
-
-```php
-$_SESSION['user'] = htmlspecialchars($_GET['user'], ENT_QUOTES, 'UTF-8');
-```
-
----
 
 ### 🛡️ 2. Mejoras de seguridad adicionales
 
@@ -721,7 +714,7 @@ $usuario = $_SESSION['user'] ?? null;
 
 > __Realiza las operaciones indicadas__
 
-> __Crea un repositorio  con nombre PPS-Unidad3Actividad6-Tu-Nombre donde documentes la realización de ellos.__
+> __Crea un repositorio  con nombre PPS-Unidad3Actividad14-Tu-Nombre donde documentes la realización de ellos.__
 
 > No te olvides de documentarlo convenientemente con explicaciones, capturas de pantalla, etc.
 
