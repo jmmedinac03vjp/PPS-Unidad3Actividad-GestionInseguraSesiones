@@ -93,43 +93,12 @@ Nos informa que se ha iniciado sesión con el usuario introducido:
 
 ## Simulación de ataques y mejoras de seguridad en sesiones PHP
 
-Tienes estos ejemplos para simular ataques comunes a sesiones en PHP y contramedidas recomendadas para mitigarlos. Diseñado para propósitos educativos.
+- Puedes probar ataque XSS introduciendo en el campo del usuario algo así como `<script>alert(1)</script>`.
 
-## 🔧 1. Simulación de ataques y fallos típicos
-
-### 📛 A. Ataque por *Session Fixation*
-
-```php
-// Simular ataque por fijación de sesión
-if (isset($_GET['fix_session_id'])) {
-    session_id($_GET['fix_session_id']); // Forzar ID de sesión proporcionado
-}
-```
-
-* URL de prueba: `https://pps.edu/sesion1.php?fix_session_id=ABC123`
-
-### 📛 B. Ataque por *Session Hijacking* (Mejora IP + User-Agent)
-
-```php
-// Validación adicional con User-Agent
-if (!isset($_SESSION['user_agent'])) {
-    $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
-} elseif ($_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
-    session_destroy();
-    die("⚠️ Posible secuestro de sesión detectado.");
-}
-```
-
-### 📛 C. Vulnerabilidad XSS persistente (sólo con fines demostrativos)
-
-```php
-// Versión vulnerable (comentada para evitar ejecución real)
-// $_SESSION['user'] = $_GET['user']; // vulnerable a <script>alert(1)</script>
-```
 
 ---
+
 ### Explotación de Session Hijacking
----
 
 Si un atacante obtiene una cookie de sesión válida, puede suplantar a un usuario legítimo.
 
