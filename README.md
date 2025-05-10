@@ -515,6 +515,99 @@ Comprobar que la cookie de sesión tiene el flag Secure habilitado.
 
 Este código refuerza la seguridad de sesiones en PHP y es una buena práctica para aplicaciones web que manejen autenticación de usuarios.
 
+## Para completar (Opcional)
+
+## Simulación de ataques y mejoras de seguridad en sesiones PHP
+
+Este documento incluye ejemplos para simular ataques comunes a sesiones en PHP y contramedidas recomendadas para mitigarlos. Diseñado para propósitos educativos.
+
+---
+
+### 🔧 1. Simulación de ataques y fallos típicos
+
+#### 📛 A. Ataque por *Session Fixation*
+
+```php
+// Simular ataque por fijación de sesión
+if (isset($_GET['fix_session_id'])) {
+    session_id($_GET['fix_session_id']); // Forzar ID de sesión proporcionado
+}
+```
+
+* URL de prueba: `https://pps.edu/sesion1.php?fix_session_id=ABC123`
+* Prevenir regenerando el ID tras login: `session_regenerate_id(true);`
+
+#### 📛 B. Ataque por *Session Hijacking* (Mejora IP + User-Agent)
+
+```php
+// Validación adicional con User-Agent
+if (!isset($_SESSION['user_agent'])) {
+    $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'];
+} elseif ($_SESSION['user_agent'] !== $_SERVER['HTTP_USER_AGENT']) {
+    session_destroy();
+    die("⚠️ Posible secuestro de sesión detectado.");
+}
+```
+
+#### 📛 C. Vulnerabilidad XSS persistente (sólo con fines demostrativos)
+
+```php
+// Versión vulnerable (comentada para evitar ejecución real)
+// $_SESSION['user'] = $_GET['user']; // vulnerable a <script>alert(1)</script>
+```
+
+Usar `htmlspecialchars()` siempre que se muestre información del usuario:
+
+```php
+$_SESSION['user'] = htmlspecialchars($_GET['user'], ENT_QUOTES, 'UTF-8');
+```
+
+---
+
+### 🛡️ 2. Mejoras de seguridad adicionales
+
+#### ✅ A. Configuración de SameSite más estricta
+
+```php
+'samesite' => 'Strict' // Mayor protección CSRF (aunque puede afectar SSO)
+```
+
+#### ✅ B. Control de intentos fallidos (prevención fuerza bruta)
+
+```php
+if (!isset($_SESSION['intentos'])) {
+    $_SESSION['intentos'] = 0;
+}
+
+if ($_SESSION['intentos'] >= 5) {
+    die("⚠️ Demasiados intentos. Inténtalo más tarde.");
+}
+
+// En caso de fallo de autenticación:
+// $_SESSION['intentos']++;
+```
+
+#### ✅ C. Cierre seguro de sesión
+
+```php
+if (isset($_GET['logout'])) {
+    session_unset();
+    session_destroy();
+    header("Location: sesion1.php");
+    exit();
+}
+```
+
+Agregar un botón de cierre en HTML:
+
+```html
+<a href="?logout=1">Cerrar sesión</a>
+```
+
+---
+
+Este conjunto de ejemplos permite ilustrar tanto las amenazas reales como las buenas prácticas en el manejo de sesiones en PHP, ideal para una clase o entorno de formación en seguridad web.
+
 
 ## ENTREGA
 
