@@ -37,6 +37,43 @@ Situáte en la carpeta de del entorno de pruebas de nuestro servidor LAMP e inic
 docker-compose up -d
 ~~~
 
+### Archivo mostrar_sesion.php
+
+Vamos a crear un archivo `php`para que nos muestre los datos de la sesión:
+
+archivo `mostrar_sesion.php`
+```php
+?php
+session_start();
+
+$usuario = $_SESSION['user'] ?? "No autenticado";
+$horaInicio = isset($_SESSION['inicio']) ? date("Y-m-d H:i:s", $_SESSION['inicio']) : "No iniciada";
+
+echo "<h2> ^=^t^m Informaci  n de la sesi  n</h2>";
+echo "<ul>";
+echo "<li><strong>Usuario:</strong> " . htmlspecialchars($usuario, ENT_QUOTES, 'UTF-8') . "</li>";
+echo "<li><strong>Sesi  n activa:</strong> " . (session_status() === PHP_SESSION_ACTIVE ? "S    ^|^e" : "No  ^}^l") . "</li>";
+echo "<li><strong>Hora de inicio:</strong> " . $horaInicio . "</li>";
+echo "<li><strong>Cookies:</strong><br><pre>" . print_r($_COOKIE, true) . "</pre></li>";
+echo "</ul>";
+// dependiendo  del archivo que estemos probando deberiamos cambiar abajo: sesion.php, sesion1.php, etc.
+echo '<p><a href="sesion.php"> ^=^t^y Volver a sesion.php</a></p>';
+?>
+```
+💡 ¿Qué permite este módulo?
+
+- Ver si la sesión está activa.
+
+- Mostrar el nombre del usuario autenticado.
+
+- Ver la hora exacta en que se inició la sesión.
+
+- Listar el contenido de las cookies asociadas.
+
+Ten en cuenta que según al archivo de sesión que lo estemos aplicando, puede ser que no se muestren todos los datos.
+
+Si lo utilizas con otro archivo diferente a `sesion.php` tienes que modificar el enlace. 
+---
 
 ## Código vulnerable
 ---
@@ -50,6 +87,8 @@ session_start();
 if (isset($_GET['user'])) {
     $_SESSION['user'] = $_GET['user'];
     echo "Sesión iniciada como: " . htmlspecialchars($_SESSION['user']);
+    // Enlace al visor de sesi  n
+    echo '<br><a href="mostrar_sesion.php"> ^=^t^m Ver detalles de la sesi  n</a>';
 }
 ?>
 
