@@ -447,6 +447,8 @@ if ($sesion_valida) {
         }
     
     $mensaje = " ^|^e Sesi  n iniciada como: " . $_SESSION['user'];
+    // Enlace al visor de sesi  n
+    echo '<br><a href="mostrar_sesion.php"> ^=^t^m Ver detalles de la sesi  n</a>';
 } else {
     $mensaje = " ^z   ^o Error: sesi  n inv  lida por IP no coincidente o inactividad. Vuelve a iniciar sesi  n.";
 }
@@ -705,7 +707,9 @@ $usuario = $_SESSION['user'] ?? null;
 
     <?php if ($usuario): ?>
         <p>✅ Sesión iniciada como: <strong><?= $usuario ?></strong></p>
+    	<p><br><a href="mostrar_sesion.php"> ^=^t^m Ver detalles de la sesi  n</a></br></p>
         <p><a href="?logout=1">Cerrar sesión</a></p>
+    	// Enlace al visor de sesi  n
     <?php else: ?>
         <form method="GET">
             <label for="user">Usuario:</label>
